@@ -10,8 +10,11 @@ public class JoystickTCPControl : MonoBehaviour
     Rigidbody rb;
 
     public string serverIP = "192.168.126.254";  // IP of Raspberry Pi
-    public int serverPort = 65431;
+    public int serverPort = 5001;
     public float moveSpeed = 20f;  // Increased speed for better responsiveness
+    public float jumpForce = 10f;
+
+    private bool isJumping = false;
 
     void Start()
     {
@@ -46,16 +49,33 @@ public class JoystickTCPControl : MonoBehaviour
 
             Vector3 move = Vector3.zero;
 
-            // Determine movement based on received data
-            if (data.Contains("W")) move += Vector3.forward;   // Move forward
-            if (data.Contains("S")) move -= Vector3.forward;   // Move backward
-            if (data.Contains("A")) move -= Vector3.right;     // Move left
-            if (data.Contains("D")) move += Vector3.right;     // Move right
+            // Diagonal movement handling
+            if (data.Contains("W") && data.Contains("D")) move += Vector3.forward + Vector3.right;   // WD
+            if (data.Contains("W") && data.Contains("A")) move += Vector3.forward - Vector3.right;   // WA
+            if (data.Contains("S") && data.Contains("D")) move -= Vector3.forward - Vector3.right;   // SD
+            if (data.Contains("S") && data.Contains("A")) move -= Vector3.forward + Vector3.right;   // SA
 
-            // If there is movement data, apply movement using Rigidbody
+            // Single direction movement
+            if (data.Contains("W") && !data.Contains("A") && !data.Contains("D") && !data.Contains("S")) move += Vector3.forward;
+            if (data.Contains("S") && !data.Contains("A") && !data.Contains("D") && !data.Contains("W")) move -= Vector3.forward;
+            if (data.Contains("A") && !data.Contains("W") && !data.Contains("S") && !data.Contains("D")) move -= Vector3.right;
+            if (data.Contains("D") && !data.Contains("W") && !data.Contains("S") && !data.Contains("A")) move += Vector3.right;
+
+            // Apply movement
             if (move.magnitude > 0)
             {
-                rb.AddForce(move.normalized * moveSpeed, ForceMode.VelocityChange);  // Apply force in the direction
+                rb.AddForce(move.normalized * moveSpeed, ForceMode.VelocityChange);
+            }
+
+            // Handle jump
+            if (data.Contains("+JUMP") && !isJumping)
+            {
+                rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+                isJumping = true;
+            }
+            else if (!data.Contains("+JUMP"))
+            {
+                isJumping = false;
             }
         }
     }
